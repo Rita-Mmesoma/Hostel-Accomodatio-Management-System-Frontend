@@ -1,0 +1,85 @@
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { loginStudent } from '../api/auth'
+
+
+const inputClass = 'border w-full outline-none text-md border-gray-300 p-3 rounded-md focus:border-green-700'
+
+const Login = () => {
+  const [registrationNo, setRegistrationNo] = useState('')
+  const [rrr, setRrr] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const navigate = useNavigate()
+
+  const handleLogin = async (e) => {
+      e.preventDefault()
+      setError('')
+      setLoading(true)
+
+      try {
+        const res = await loginStudent(registrationNo.trim(), rrr.trim())
+        console.log('login response:', res) // check this once, then delete this line
+
+        const data = res.data
+        const token = typeof data === 'string' ? data : data?.token
+        localStorage.setItem('token', token)
+
+        navigate('/dashboard')
+      } catch (err) {
+        setError(err.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    return (
+      <div>
+        <div className='bg-white shadow-xl w-94 md:h-100 h-75 flex justify-center items-center rounded-lg'>
+ 
+        <form onSubmit={handleLogin} className='flex flex-col w-[90%] h-[90%] justify-center items-center'>
+
+          <div className='mb-3 w-full '>
+              <label className='block mb-1 text-lg font-medium'>Reg Number</label>
+              <input 
+                value={registrationNo}
+                onChange={(e) => setRegistrationNo(e.target.value)}
+                type="text" 
+                required 
+                className={inputClass}
+                placeholder='Reg Number' 
+              />
+          </div>
+
+          <div className='mb-8 w-full '>
+              <label className='block mb-1 text-lg font-medium'>RRR</label>
+              <input 
+              value={rrr}
+              onChange={(e) => setRrr(e.target.value)}
+              type="text" 
+              required 
+              className={inputClass}
+              placeholder='School Fees RRR' 
+            />
+          </div>
+
+          {error && (
+            <p className='bg-red-50 text-red-600 rounded-lg px-4 py-3 mb-4 text-sm'>{error}</p>
+          )}
+
+          <button 
+          type="submit" 
+          disabled={loading}
+          className='w-full h-9 bg-green-600 mb-3 text-white font-bold rounded-2xl cursor-pointer'
+          >
+            {loading ? 'Logging in...' : 'Login'}
+          </button>
+
+          <p className='text-[13px]'>Not a staff? <Link to="/adminlogin" className='text-green-600'>Login as an admin</Link></p>
+        </form>
+      </div>
+      </div>
+    )
+}
+
+export default Login
