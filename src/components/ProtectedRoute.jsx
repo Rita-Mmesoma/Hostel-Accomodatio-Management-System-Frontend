@@ -1,13 +1,20 @@
 import { Navigate, Outlet } from 'react-router-dom'
+import { ProfileProvider } from '../context/ProfileContext'
 
-const ProtectedRoute = () => {
+const ProtectedRoute = ({role}) => {
   const token = localStorage.getItem('token')
+  const savedRole = localStorage.getItem('role')
 
-  if (!token) {
-    return <Navigate to='/' replace />
+
+  if (!token || savedRole !== role) {
+    return <Navigate to={role === 'admin' ? '/adminLogin' : '/'} replace />
   }
 
-  return <Outlet />
+  return (
+    <ProfileProvider>
+      <Outlet />
+    </ProfileProvider>
+  )
 }
 
 export default ProtectedRoute

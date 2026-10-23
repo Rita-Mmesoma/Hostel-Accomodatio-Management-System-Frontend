@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { NavLink, Outlet, Link  } from 'react-router-dom'
-import { useLocation } from 'react-router-dom'
+import { NavLink, Outlet, Link, useLocation } from 'react-router-dom'
 import UserInfo from '../ui/UserInfo'
 import { LogOut } from 'lucide-react'
+import { useProfile } from '../../context/ProfileContext'
 
-const navItems = [
+const studentNavItems = [
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/reserve', label: 'Reserve a Room' },
   { to: '/payments', label: 'My Payments' },
@@ -12,17 +12,24 @@ const navItems = [
   { to: '/report-issue', label: 'Report an Issue' },
 ]
 
-const titles = {
+const studentTitles = {
   '/dashboard': 'Dashboard',
   '/reserve': 'Reserve a Room',
   '/payments': 'My Payments',
   '/check-in-code': 'My Check-in Code',
   '/report-issue': 'Report an Issue',
+  '/signout': 'Sign out',
 }
 
-const DashboardLayout = () => {
+// The student version is the default. AdminLayout passes its own props.
+const DashboardLayout = ({
+  navItems = studentNavItems,
+  titles = studentTitles,
+  signOutPath = '/signout',
+}) => {
   const [menuOpen, setMenuOpen] = useState(false)
-  const {pathname} = useLocation()
+  const { pathname } = useLocation()
+  const { profile, loading } = useProfile()
 
   return (
     <div className='w-full min-h-screen flex bg-gray-50'>
@@ -51,7 +58,7 @@ const DashboardLayout = () => {
         </nav>
 
         <Link
-          to='/signout'
+          to={signOutPath}
           onClick={() => setMenuOpen(false)}
           className='mt-auto flex items-center gap-3 px-3 py-3.5 rounded-lg text-lg font-medium text-white/80 hover:bg-white/10'
         >
@@ -76,17 +83,16 @@ const DashboardLayout = () => {
             <h1 className='text-lg font-semibold'>{titles[pathname] || 'Dashboard'}</h1>
           </div>
 
-          <UserInfo name='Chidinma Okafor' role='Student' />
+          {loading ? (
+            <div className='h-9 w-44 rounded-lg bg-stone-100 animate-pulse' />
+          ) : (
+            <UserInfo
+              name={profile?.fullName || 'User'}
+              role={profile?.roleLabel || ''}
+              signOutPath={signOutPath}
+            />
+          )}
         </header>
-        {/* <header className='h-16 bg-white border-b flex items-center px-6 gap-4'>
-          <button
-            onClick={() => setMenuOpen(true)}
-            className='md:hidden text-2xl'
-          >
-            ☰
-          </button>
-          <h1 className='text-lg font-semibold'>{titles[pathname] || 'Dashboard'}</h1>
-        </header> */}
 
         <main className='flex-1 p-6'>
           <Outlet />

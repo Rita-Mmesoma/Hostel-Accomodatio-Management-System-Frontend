@@ -1,12 +1,16 @@
 const styles = {
   Confirmed: 'bg-green-50 text-green-700',
   Allocated: 'bg-green-50 text-green-700',
-   Closed: 'bg-green-50 text-green-700',
+  Closed: 'bg-green-50 text-green-700',
+  Resolved: 'bg-green-50 text-green-700',
+  Active: 'bg-green-50 text-green-700',
+  Available: 'bg-green-50 text-green-700',
   Pending: 'bg-amber-50 text-amber-700',
   'Pending Payment': 'bg-amber-50 text-amber-700',
   'In Progress': 'bg-amber-50 text-amber-700',
   Expired: 'bg-red-50 text-red-600',
   Open: 'bg-red-50 text-red-600',
+  Full: 'bg-red-50 text-red-600',
 }
 
 const StatusBadge = ({ status }) => {

@@ -1,0 +1,24 @@
+import DashboardLayout from './DashboardLayout'
+
+const adminNavItems = [
+  { to: '/admin/dashboard', label: 'Dashboard' },
+  { to: '/admin/hostels', label: 'Hostels & Rooms' },
+  { to: '/admin/payments', label: 'Payments' },
+  { to: '/admin/check-in', label: 'Check-in Verification' },
+  { to: '/admin/issues', label: 'Issues' },
+]
+
+const adminTitles = {
+  '/admin/dashboard': 'Dashboard',
+  '/admin/hostels': 'Hostels & Rooms',
+  '/admin/payments': 'Payments',
+  '/admin/check-in': 'Check-in Verification',
+  '/admin/issues': 'Issues',
+  '/admin/signout': 'Sign out',
+}
+
+const AdminLayout = () => (
+  <DashboardLayout navItems={adminNavItems} titles={adminTitles} signOutPath='/admin/signout' />
+)
+
+export default AdminLayout
