@@ -1,68 +1,265 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, Plus, Search } from 'lucide-react'
-import { adminHostels, getStats, getRoomStatus } from '../../data/adminHostels'
 import StatusBadge from '../ui/StatusBadge'
 import OccupancyBar from '../ui/OccupancyBar'
 import Modal from '../ui/Modal'
+import Loader, { Spinner } from '../ui/Loader'
+import ErrorMessage from '../ui/ErrorMessage'
+import {
+  getAllHostels,
+  getAllRooms,
+  getAllBeds,
+  createRoom,
+  updateRoom,
+  deactivateRoom,
+  activateRoom,
+} from '../../api/admin'
 
-const statusTone = { Available: 'green', Full: 'amber', Inactive: 'gray' }
-const bedTone = { allocated: 'green', pending: 'amber', available: 'outline' }
-const bedLabel = { allocated: 'Allocated', pending: 'Pending', available: 'Available' }
+// backend bed status -> label used by StatusBadge
+const bedLabel = { AVAILABLE: 'Available', RESERVED: 'Pending', OCCUPIED: 'Allocated' }
+const bedNote = {
+  AVAILABLE: 'No student yet',
+  RESERVED: 'Reserved by a student',
+  OCCUPIED: 'Checked in',
+}
 const filters = ['All', 'Available', 'Full', 'Inactive']
+
+const inputClass =
+  'w-full border border-stone-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-green-700'
+
+// A bed is "taken" when it is not AVAILABLE
+const getStats = (beds) => {
+  const total = beds.length
+  const taken = beds.filter((b) => b.status !== 'AVAILABLE').length
+  const percent = total === 0 ? 0 : Math.round((taken / total) * 100)
+  return { total, taken, percent }
+}
+
+// Deactivating a room sets its status to MAINTENANCE
+const isRoomInactive = (room) => room.status === 'MAINTENANCE' || room.status === 'INACTIVE'
+
+const getRoomStatus = (room, beds) => {
+  if (isRoomInactive(room)) return 'Inactive'
+  const { total, taken } = getStats(beds)
+  if (room.status === 'FULL' || (total > 0 && taken === total)) return 'Full'
+  return 'Available'
+}
+
+// ("A", 1, 10) -> ["A01", "A02", ... "A10"]
+const buildRoomNumbers = (prefix, from, to) => {
+  const width = Math.max(2, String(to).length)
+  const numbers = []
+  for (let i = from; i <= to; i++) {
+    numbers.push(`${prefix}${String(i).padStart(width, '0')}`)
+  }
+  return numbers
+}
 
 const HostelRooms = () => {
   const { hostelId } = useParams()
-  const hostel = adminHostels.find((h) => h.id === hostelId)
 
-  const [rooms, setRooms] = useState(hostel ? hostel.rooms : [])
+  const [hostel, setHostel] = useState(null)
+  const [rooms, setRooms] = useState([])
+  const [beds, setBeds] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
   const [filter, setFilter] = useState('All')
   const [search, setSearch] = useState('')
   const [selectedRoomId, setSelectedRoomId] = useState(null)
-  const [showAddRoom, setShowAddRoom] = useState(false)
-  const [roomNumber, setRoomNumber] = useState('')
-  const [bedCount, setBedCount] = useState(4)
 
-  // Hostel id in the URL did not match anything
+  // add room
+  const [showAddRoom, setShowAddRoom] = useState(false)
+  const [multiple, setMultiple] = useState(false)
+  const [prefix, setPrefix] = useState('')
+  const [from, setFrom] = useState(1)
+  const [to, setTo] = useState(10)
+  const [roomNumber, setRoomNumber] = useState('')
+  const [capacity, setCapacity] = useState(4)
+  const [saving, setSaving] = useState(false)
+  const [formError, setFormError] = useState('')
+
+  // edit room, activate / deactivate room
+  const [editRoom, setEditRoom] = useState(null)
+  const [editNumber, setEditNumber] = useState('')
+  const [editCapacity, setEditCapacity] = useState(4)
+  const [editError, setEditError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [actionError, setActionError] = useState('')
+
+  const load = async () => {
+    try {
+      const [h, r, b] = await Promise.all([getAllHostels(), getAllRooms(), getAllBeds()])
+      setHostel(h.data.find((item) => item.id === hostelId) || null)
+      setRooms(r.data.filter((room) => room.hostelId === hostelId))
+      setBeds(b.data.filter((bed) => bed.room?.hostelId === hostelId))
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    load()
+  }, [hostelId])
+
+  // const handleAddRoom = async (e) => {
+  //   e.preventDefault()
+  //   setFormError('')
+  //   setSaving(true)
+
+  //   try {
+  //     await createRoom(hostelId, roomNumber.trim(), Number(capacity))
+  //     setShowAddRoom(false)
+  //     setRoomNumber('')
+  //     setCapacity(4)
+  //     await load()
+  //   } catch (err) {
+  //     setFormError(err.message)
+  //   } finally {
+  //     setSaving(false)
+  //   }
+  // }
+
+    const handleAddRoom = async (e) => {
+    e.preventDefault()
+    setFormError('')
+
+    const numbers = multiple
+      ? buildRoomNumbers(prefix.trim(), Number(from), Number(to))
+      : [roomNumber.trim()]
+
+    if (multiple && (Number(from) > Number(to) || numbers.length > 50)) {
+      setFormError('Use a range that goes up, with at most 50 rooms at a time.')
+      return
+    }
+
+    setSaving(true)
+
+    // the backend creates one room per request, so we send them one after another
+    const failed = []
+    for (const number of numbers) {
+      try {
+        await createRoom(hostelId, number, Number(capacity))
+      } catch (err) {
+        failed.push(`${number} (${err.message})`)
+      }
+    }
+
+    await load()
+    setSaving(false)
+
+    if (failed.length === 0) {
+      setShowAddRoom(false)
+      setRoomNumber('')
+      setCapacity(4)
+      setMultiple(false)
+      setPrefix('')
+      return
+    }
+
+    // some rooms were created, some were not: say which ones failed
+    setFormError(
+      `Created ${numbers.length - failed.length} of ${numbers.length} rooms. ` +
+        `Could not create: ${failed.join('; ')}. Close this form to see the rooms that were created.`
+    )
+  }
+
+  const openEditRoom = (room) => {
+    setEditRoom(room)
+    setEditNumber(room.roomNumber)
+    setEditCapacity(room.capacity)
+    setEditError('')
+  }
+
+  const handleEditRoom = async (e) => {
+    e.preventDefault()
+    setEditError('')
+
+    // only send what changed, so an unchanged room number doesn't clash with itself
+    const fields = {}
+    if (editNumber.trim() !== editRoom.roomNumber) fields.roomNumber = editNumber.trim()
+    if (Number(editCapacity) !== editRoom.capacity) fields.capacity = Number(editCapacity)
+
+    if (Object.keys(fields).length === 0) {
+      setEditRoom(null)
+      return
+    }
+
+    setBusy(true)
+    try {
+      await updateRoom(editRoom.id, fields)
+      setEditRoom(null)
+      await load()
+    } catch (err) {
+      setEditError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const toggleRoom = async (room) => {
+    setActionError('')
+    setBusy(true)
+    try {
+      await (isRoomInactive(room) ? activateRoom(room.id) : deactivateRoom(room.id))
+      await load()
+    } catch (err) {
+      setActionError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (loading) {
+    return <Loader text='Loading rooms...' />
+  }
+
+  if (error) {
+    return (
+      <div className='max-w-lg'>
+        <Link to='/admin/hostels' className='text-green-800 text-sm font-semibold'>
+          ← Back to hostels
+        </Link>
+        <div className='mt-4'>
+          <ErrorMessage message={error} />
+        </div>
+      </div>
+    )
+  }
+
   if (!hostel) {
     return (
       <div>
-        <Link to='/admin/hostels' className='text-green-800 text-sm font-semibold'>← Back to hostels</Link>
+        <Link to='/admin/hostels' className='text-green-800 text-sm font-semibold'>
+          ← Back to hostels
+        </Link>
         <p className='mt-6 text-stone-500'>Hostel not found.</p>
       </div>
     )
   }
 
-  const { totalBeds, takenBeds } = getStats(rooms)
+  const bedsOf = (room) => beds.filter((b) => b.roomId === room.id)
+  const hostelStats = getStats(beds)
+  const active = hostel.status === 'ACTIVE'
 
   const visibleRooms = rooms.filter((room) => {
-    const matchesFilter = filter === 'All' || getRoomStatus(room) === filter
-    const matchesSearch = room.number.toLowerCase().includes(search.toLowerCase())
+    const matchesFilter = filter === 'All' || getRoomStatus(room, bedsOf(room)) === filter
+    const matchesSearch = room.roomNumber.toLowerCase().includes(search.toLowerCase())
     return matchesFilter && matchesSearch
   })
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId)
-
-  const handleAddRoom = (e) => {
-    e.preventDefault()
-    const id = `r${Date.now()}`
-    const beds = []
-    for (let i = 1; i <= Number(bedCount); i++) {
-      beds.push({ id: `${id}-b${i}`, label: `Corner ${i}`, status: 'available', studentName: '', regNo: '', expiresIn: '' })
-    }
-    setRooms([...rooms, { id, number: roomNumber.trim(), active: true, beds }])
-    setRoomNumber('')
-    setBedCount(4)
-    setShowAddRoom(false)
-  }
-
-  const toggleRoomActive = (id) => {
-    setRooms(rooms.map((r) => (r.id === id ? { ...r, active: !r.active } : r)))
-  }
+  const selectedBeds = selectedRoom ? bedsOf(selectedRoom) : []
 
   return (
     <div>
-      <Link to='/admin/hostels' className='text-green-800 text-sm font-semibold flex items-center gap-1 mb-3'>
+      <Link
+        to='/admin/hostels'
+        className='text-green-800 text-sm font-semibold flex items-center gap-1 mb-3'
+      >
         <ArrowLeft size={16} /> Back to hostels
       </Link>
 
@@ -71,15 +268,18 @@ const HostelRooms = () => {
         <div>
           <div className='flex items-center gap-3'>
             <h2 className='text-2xl font-bold text-stone-900'>{hostel.name}</h2>
-            <Badge tone={hostel.active ? 'green' : 'gray'}>{hostel.active ? 'Active' : 'Inactive'}</Badge>
+            <StatusBadge status={active ? 'Active' : 'Inactive'} />
           </div>
           <p className='text-sm text-stone-500 mt-1'>
-            {rooms.length} rooms · {takenBeds} / {totalBeds} beds taken
+            {rooms.length} rooms · {hostelStats.taken} / {hostelStats.total} beds taken
           </p>
         </div>
 
         <button
-          onClick={() => setShowAddRoom(true)}
+          onClick={() => {
+            setFormError('')
+            setShowAddRoom(true)
+          }}
           className='bg-green-800 text-white text-sm font-semibold rounded-lg px-4 py-2.5 flex items-center justify-center gap-2 cursor-pointer hover:bg-green-900'
         >
           <Plus size={16} /> Add Room
@@ -126,29 +326,38 @@ const HostelRooms = () => {
         </div>
 
         {visibleRooms.map((room) => {
-          const stats = getStats([room])
-          const status = getRoomStatus(room)
+          const roomBeds = bedsOf(room)
+          const stats = getStats(roomBeds)
+          const status = getRoomStatus(room, roomBeds)
 
           return (
             <div
               key={room.id}
               className={`grid grid-cols-[1fr_1fr_3fr_1.5fr_1fr] items-center px-6 py-4 border-b border-stone-100 last:border-b-0 text-sm ${
                 selectedRoomId === room.id ? 'bg-green-50' : ''
-              } ${room.active ? 'text-stone-900' : 'text-stone-400'}`}
+              } ${status === 'Inactive' ? 'text-stone-400' : 'text-stone-900'}`}
             >
-              <span className='font-semibold'>{room.number}</span>
-              <span>{stats.totalBeds}</span>
+              <span className='font-semibold'>{room.roomNumber}</span>
+              <span>
+                {stats.total} / {room.capacity}
+              </span>
               <div className='flex items-center gap-3 pr-6'>
-                {room.active ? (
+                {status !== 'Inactive' ? (
                   <>
-                    <div className='flex-1'><OccupancyBar percent={stats.percent} /></div>
-                    <span className='text-stone-600 text-xs w-10'>{stats.takenBeds} / {stats.totalBeds}</span>
+                    <div className='flex-1'>
+                      <OccupancyBar percent={stats.percent} />
+                    </div>
+                    <span className='text-stone-600 text-xs w-10'>
+                      {stats.taken} / {stats.total}
+                    </span>
                   </>
                 ) : (
                   <span>—</span>
                 )}
               </div>
-              <span><Badge tone={statusTone[status]}>{status}</Badge></span>
+              <span>
+                <StatusBadge status={status} />
+              </span>
               <button
                 onClick={() => setSelectedRoomId(room.id)}
                 className='text-green-800 font-semibold text-left cursor-pointer hover:underline'
@@ -167,18 +376,21 @@ const HostelRooms = () => {
       {/* Mobile room cards */}
       <div className='md:hidden space-y-3 mb-8'>
         {visibleRooms.map((room) => {
-          const stats = getStats([room])
-          const status = getRoomStatus(room)
+          const roomBeds = bedsOf(room)
+          const stats = getStats(roomBeds)
+          const status = getRoomStatus(room, roomBeds)
 
           return (
             <div key={room.id} className='bg-white border border-stone-200 rounded-2xl p-4'>
               <div className='flex items-center justify-between mb-3'>
-                <span className='font-bold text-stone-900'>{room.number}</span>
-                <StatusBadge status={hostel.active ? 'Active' : 'Inactive'} />
+                <span className='font-bold text-stone-900'>{room.roomNumber}</span>
+                <StatusBadge status={status} />
               </div>
-              {room.active && <OccupancyBar percent={stats.percent} />}
+              {status !== 'Inactive' && <OccupancyBar percent={stats.percent} />}
               <div className='flex items-center justify-between mt-3 text-sm'>
-                <span className='text-stone-500'>{stats.takenBeds} / {stats.totalBeds} beds taken</span>
+                <span className='text-stone-500'>
+                  {stats.taken} / {stats.total} beds taken
+                </span>
                 <button
                   onClick={() => setSelectedRoomId(room.id)}
                   className='text-green-800 font-semibold cursor-pointer'
@@ -200,44 +412,57 @@ const HostelRooms = () => {
         <div>
           <div className='flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-4'>
             <div>
-              <h3 className='text-base font-bold text-stone-900'>Room {selectedRoom.number}: beds (corners)</h3>
+              <h3 className='text-base font-bold text-stone-900'>
+                Room {selectedRoom.roomNumber}: beds
+              </h3>
               <p className='text-xs text-stone-500 mt-1'>
-                {selectedRoom.beds.filter((b) => b.status === 'allocated').length} allocated ·{' '}
-                {selectedRoom.beds.filter((b) => b.status === 'pending').length} pending ·{' '}
-                {selectedRoom.beds.filter((b) => b.status === 'available').length} available
+                {selectedBeds.filter((b) => b.status === 'OCCUPIED').length} allocated ·{' '}
+                {selectedBeds.filter((b) => b.status === 'RESERVED').length} pending ·{' '}
+                {selectedBeds.filter((b) => b.status === 'AVAILABLE').length} available
               </p>
             </div>
 
-            <button
-              onClick={() => toggleRoomActive(selectedRoom.id)}
-              className='border border-stone-200 bg-white rounded-lg px-4 py-2 text-sm cursor-pointer hover:bg-stone-50'
-            >
-              {selectedRoom.active ? 'Deactivate room' : 'Activate room'}
-            </button>
+            <div className='flex gap-2'>
+              <button
+                onClick={() => openEditRoom(selectedRoom)}
+                className='border border-stone-200 bg-white rounded-lg px-4 py-2 text-sm cursor-pointer hover:bg-stone-50'
+              >
+                Edit room
+              </button>
+              <button
+                onClick={() => toggleRoom(selectedRoom)}
+                disabled={busy}
+                className='border border-stone-200 bg-white rounded-lg px-4 py-2 text-sm cursor-pointer hover:bg-stone-50 flex items-center gap-2 disabled:opacity-60'
+              >
+                {busy && <Spinner size={14} />}
+                {isRoomInactive(selectedRoom) ? 'Activate room' : 'Deactivate room'}
+              </button>
+            </div>
           </div>
 
+          {actionError && (
+            <div className='mb-4'>
+              <ErrorMessage message={actionError} />
+            </div>
+          )}
+
+          {selectedBeds.length === 0 && (
+            <p className='text-sm text-stone-500'>No beds have been created in this room yet.</p>
+          )}
+
           <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
-            {selectedRoom.beds.map((bed) => (
+            {selectedBeds.map((bed) => (
               <div
                 key={bed.id}
                 className={`rounded-2xl p-4 bg-white ${
-                  bed.status === 'available' ? 'border border-dashed border-stone-300' : 'border border-stone-200'
+                  bed.status === 'AVAILABLE'
+                    ? 'border border-dashed border-stone-300'
+                    : 'border border-stone-200'
                 }`}
               >
-                <p className='font-bold text-stone-900 text-sm mb-2'>{bed.label}</p>
-                <Badge tone={bedTone[bed.status]}>{bedLabel[bed.status]}</Badge>
-
-                {bed.status === 'available' ? (
-                  <p className='text-sm text-stone-400 mt-3'>No student yet</p>
-                ) : (
-                  <div className='mt-3'>
-                    <p className='text-sm text-stone-700'>{bed.studentName}</p>
-                    <p className='text-xs text-stone-500'>{bed.regNo}</p>
-                    {bed.status === 'pending' && (
-                      <p className='text-xs text-amber-700 mt-1'>Expires in {bed.expiresIn}</p>
-                    )}
-                  </div>
-                )}
+                <p className='font-bold text-stone-900 text-sm mb-2'>Bed {bed.bedNumber}</p>
+                <StatusBadge status={bedLabel[bed.status] || bed.status} />
+                <p className='text-sm text-stone-400 mt-3'>{bedNote[bed.status] || ''}</p>
               </div>
             ))}
           </div>
@@ -246,41 +471,162 @@ const HostelRooms = () => {
 
       {/* Add room modal */}
       {showAddRoom && (
-        <Modal title='Add Room' onClose={() => setShowAddRoom(false)}>
+        <Modal title='Add Room' onClose={() => !saving && setShowAddRoom(false)}>
           <form onSubmit={handleAddRoom}>
-            <label className='block text-sm font-medium mb-1'>Room number</label>
+            {/* <label className='block text-sm font-medium mb-1'>Room number</label>
             <input
               value={roomNumber}
               onChange={(e) => setRoomNumber(e.target.value)}
-              placeholder='e.g. A105'
+              placeholder='e.g. A01'
               required
-              className='w-full border border-stone-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-green-700 mb-4'
-            />
+              className={`${inputClass} mb-4`}
+            /> */}
 
-            <label className='block text-sm font-medium mb-1'>Number of beds</label>
+                        {!multiple ? (
+              <>
+                <label className='block text-sm font-medium mb-1'>Room number</label>
+                <input
+                  value={roomNumber}
+                  onChange={(e) => setRoomNumber(e.target.value)}
+                  placeholder='e.g. A01'
+                  required
+                  className={`${inputClass} mb-2`}
+                />
+              </>
+            ) : (
+              <>
+                <div className='grid grid-cols-3 gap-3 mb-2'>
+                  <div>
+                    <label className='block text-sm font-medium mb-1'>Prefix</label>
+                    <input
+                      value={prefix}
+                      onChange={(e) => setPrefix(e.target.value)}
+                      placeholder='A'
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label className='block text-sm font-medium mb-1'>From</label>
+                    <input
+                      type='number'
+                      min='1'
+                      value={from}
+                      onChange={(e) => setFrom(e.target.value)}
+                      required
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label className='block text-sm font-medium mb-1'>To</label>
+                    <input
+                      type='number'
+                      min='1'
+                      value={to}
+                      onChange={(e) => setTo(e.target.value)}
+                      required
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
+                {Number(from) <= Number(to) && Number(to) - Number(from) < 50 && (
+                  <p className='text-xs text-stone-500 mb-2'>
+                    {(() => {
+                      const list = buildRoomNumbers(prefix.trim(), Number(from), Number(to))
+                      return `Will create ${list.length} room${list.length === 1 ? '' : 's'}: ${list[0]} to ${list[list.length - 1]}`
+                    })()}
+                  </p>
+                )}
+              </>
+            )}
+
+            <button
+              type='button'
+              onClick={() => setMultiple(!multiple)}
+              className='text-green-800 text-sm font-semibold cursor-pointer mb-4'
+            >
+              {multiple ? 'Add a single room instead' : 'Add several rooms at once'}
+            </button>
+
+            <label className='block text-sm font-medium mb-1'>Capacity (number of beds)</label>
             <input
               type='number'
               min='1'
               max='12'
-              value={bedCount}
-              onChange={(e) => setBedCount(e.target.value)}
+              value={capacity}
+              onChange={(e) => setCapacity(e.target.value)}
               required
-              className='w-full border border-stone-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-green-700 mb-6'
+              className={`${inputClass} mb-6`}
             />
+
+            {formError && (
+              <p className='bg-red-50 text-red-600 rounded-lg px-4 py-3 mb-4 text-sm'>{formError}</p>
+            )}
 
             <div className='flex justify-end gap-3'>
               <button
                 type='button'
                 onClick={() => setShowAddRoom(false)}
+                disabled={saving}
                 className='border border-stone-200 rounded-lg px-4 py-2.5 text-sm cursor-pointer hover:bg-stone-50'
               >
                 Cancel
               </button>
               <button
                 type='submit'
-                className='bg-green-800 text-white rounded-lg px-5 py-2.5 text-sm font-semibold cursor-pointer hover:bg-green-900'
+                disabled={saving}
+                className='bg-green-800 text-white rounded-lg px-5 py-2.5 text-sm font-semibold cursor-pointer hover:bg-green-900 flex items-center gap-2 disabled:opacity-60'
               >
-                Save
+                {saving && <Spinner size={16} />}
+                {saving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Edit room modal */}
+      {editRoom && (
+        <Modal title='Edit Room' onClose={() => !busy && setEditRoom(null)}>
+          <form onSubmit={handleEditRoom}>
+            <label className='block text-sm font-medium mb-1'>Room number</label>
+            <input
+              value={editNumber}
+              onChange={(e) => setEditNumber(e.target.value)}
+              required
+              className={`${inputClass} mb-4`}
+            />
+
+            <label className='block text-sm font-medium mb-1'>Capacity (number of beds)</label>
+            <input
+              type='number'
+              min='1'
+              max='12'
+              value={editCapacity}
+              onChange={(e) => setEditCapacity(e.target.value)}
+              required
+              className={`${inputClass} mb-6`}
+            />
+
+            {editError && (
+              <p className='bg-red-50 text-red-600 rounded-lg px-4 py-3 mb-4 text-sm'>{editError}</p>
+            )}
+
+            <div className='flex justify-end gap-3'>
+              <button
+                type='button'
+                onClick={() => setEditRoom(null)}
+                disabled={busy}
+                className='border border-stone-200 rounded-lg px-4 py-2.5 text-sm cursor-pointer hover:bg-stone-50'
+              >
+                Cancel
+              </button>
+              <button
+                type='submit'
+                disabled={busy}
+                className='bg-green-800 text-white rounded-lg px-5 py-2.5 text-sm font-semibold cursor-pointer hover:bg-green-900 flex items-center gap-2 disabled:opacity-60'
+              >
+                {busy && <Spinner size={16} />}
+                {busy ? 'Saving...' : 'Save'}
               </button>
             </div>
           </form>

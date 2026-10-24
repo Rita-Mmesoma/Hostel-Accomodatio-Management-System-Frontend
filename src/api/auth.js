@@ -23,5 +23,5 @@ export const clearLogin = () => {
   localStorage.removeItem('token')
   localStorage.removeItem('role')
   localStorage.removeItem('reservationExpiresAt')
-  localStorage.removeItem('checkIn')
+  // localStorage.removeItem('checkIn')
 }

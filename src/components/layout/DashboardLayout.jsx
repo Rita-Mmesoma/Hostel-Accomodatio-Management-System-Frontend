@@ -21,6 +21,17 @@ const studentTitles = {
   '/signout': 'Sign out',
 }
 
+// Finds the page title for a path. Exact match first, then the closest
+const findTitle = (titles, pathname) => {
+  if (titles[pathname]) return titles[pathname]
+
+  const parent = Object.keys(titles)
+    .filter((path) => pathname.startsWith(`${path}/`))
+    .sort((a, b) => b.length - a.length)[0]
+
+  return titles[parent] || 'Dashboard'
+}
+
 // The student version is the default. AdminLayout passes its own props.
 const DashboardLayout = ({
   navItems = studentNavItems,
@@ -80,7 +91,7 @@ const DashboardLayout = ({
             <button onClick={() => setMenuOpen(true)} className='md:hidden text-2xl'>
               ☰
             </button>
-            <h1 className='text-lg font-semibold'>{titles[pathname] || 'Dashboard'}</h1>
+            <h1 className='text-lg font-semibold'>{findTitle[pathname] || 'Dashboard'}</h1>
           </div>
 
           {loading ? (

@@ -4,7 +4,7 @@ import useCountdown from '../hooks/useCountdown'
 import Loader, { Spinner } from './ui/Loader'
 import ErrorMessage from './ui/ErrorMessage'
 import StatusBadge from './ui/StatusBadge'
-import TransactionHistory from './TransactionHistory'
+// import TransactionHistory from './TransactionHistory'
 import { useProfile } from '../context/ProfileContext'
 import { getHostel } from '../api/hostels'
 import { makePayment } from '../api/payments'
@@ -89,14 +89,13 @@ const PaymentPanel = ({ onPaid }) => {
     if (profile?.schoolFee?.rrr) setRrr(profile.schoolFee.rrr)
   }, [profile])
 
-  // the amount to pay is the accommodation fee of the student's hostel
   useEffect(() => {
-    if (!hostelId) return
+    if (!hostelId || alreadyPaid) return
 
     getHostel(hostelId)
       .then((res) => setFee(res.data.accommodationFee))
       .catch((err) => setFeeError(err.message))
-  }, [hostelId])
+  }, [hostelId, alreadyPaid])
 
   const handlePay = async (e) => {
     e.preventDefault()
@@ -107,7 +106,7 @@ const PaymentPanel = ({ onPaid }) => {
       const res = await makePayment(rrr.trim(), Number(fee))
 
       // the check-in code only comes back in this response, so keep it
-      localStorage.setItem('checkIn', JSON.stringify(res.data.checkIn))
+      localStorage.setItem(`checkIn:${profile.registrationNo}`, JSON.stringify(res.data.checkIn))
       localStorage.removeItem('reservationExpiresAt')
       await refreshProfile()
       setJustPaid(true)
@@ -228,7 +227,7 @@ const Payments = () => {
   return (
     <div className='flex flex-col gap-8'>
       <PaymentPanel onPaid={() => setHistoryVersion((v) => v + 1)} />
-      <TransactionHistory key={historyVersion} />
+      {/* <TransactionHistory key={historyVersion} /> */}
     </div>
   )
 }

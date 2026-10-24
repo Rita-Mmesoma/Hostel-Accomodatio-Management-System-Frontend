@@ -15,6 +15,7 @@ import AdminLayout from './components/layout/AdminLayout'
 import ComingSoon from './components/ComingSoon'
 import ManageHostels from './components/admin/ManageHostels'
 import HostelRooms from './components/admin/HostelRooms'
+import CheckInVerification from './components/CheckInVerification'
 
 function App() {
   return (
@@ -40,7 +41,7 @@ function App() {
           <Route path='/admin/dashboard' element={<AdminDashboard />} />
           {/* <Route path='/admin/hostels' element={<ComingSoon title='Hostels & Rooms' />} /> */}
           <Route path='/admin/payments' element={<ComingSoon title='Payments' />} />
-          <Route path='/admin/check-in' element={<ComingSoon title='Check-in Verification' />} />
+          <Route path='/admin/check-in' element={<CheckInVerification />} />
           <Route path='/admin/issues' element={<ComingSoon title='Issues' />} />
           <Route path='/admin/hostels' element={<ManageHostels />} />
           <Route path='/admin/hostels/:hostelId' element={<HostelRooms />} />

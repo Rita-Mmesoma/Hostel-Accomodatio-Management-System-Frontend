@@ -10,7 +10,7 @@ const adminNavItems = [
 
 const adminTitles = {
   '/admin/dashboard': 'Dashboard',
-  '/admin/hostels': 'Hostels & Rooms',
+  '/admin/hostels': 'Manage Hostels',
   '/admin/payments': 'Payments',
   '/admin/check-in': 'Check-in Verification',
   '/admin/issues': 'Issues',

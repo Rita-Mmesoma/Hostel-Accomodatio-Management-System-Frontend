@@ -11,7 +11,17 @@ const formatFee = (fee) =>
 const formatGender = (gender) =>
   gender ? gender.charAt(0) + gender.slice(1).toLowerCase() : ''
 
-const HostelCard = ({ id, name, gender, description, imageUrl, accommodationFee }) => {
+const HostelCard = ({ 
+  id,
+  name,
+  gender,
+  description,
+  imageUrl,
+  accommodationFee,
+  onApply,
+  applying,
+  disabled,
+ }) => {
   return (
     <div className='bg-white border border-stone-200 rounded-2xl overflow-hidden flex flex-col'>
 

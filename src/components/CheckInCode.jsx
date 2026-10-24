@@ -13,9 +13,9 @@ const steps = [
 ]
 
 // The code saved in this browser right after payment
-const getSavedCheckIn = () => {
+const getSavedCheckIn = (registrationNo) => {
   try {
-    return JSON.parse(localStorage.getItem('checkIn'))
+    return JSON.parse(localStorage.getItem(`checkIn:${registrationNo}`))
   } catch {
     return null
   }
@@ -65,7 +65,7 @@ const CheckInCode = () => {
   }
 
   // paid: use the code from the profile if the backend sends it, otherwise the one saved after payment
-  const checkIn = allocation.checkIn || getSavedCheckIn()
+    const checkIn = allocation.checkIn || getSavedCheckIn(profile.registrationNo)
 
   if (!checkIn?.code) {
     return (
