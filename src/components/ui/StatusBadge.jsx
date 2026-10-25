@@ -11,6 +11,8 @@ const styles = {
   Expired: 'bg-red-50 text-red-600',
   Open: 'bg-red-50 text-red-600',
   Full: 'bg-red-50 text-red-600',
+  Paid: 'bg-green-50 text-green-700',
+  'Not Paid': 'bg-red-50 text-red-600',
 }
 
 const StatusBadge = ({ status }) => {

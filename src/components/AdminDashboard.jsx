@@ -64,7 +64,7 @@ const AdminDashboard = () => {
         )
       )
 
-      setData({ hostels, rooms, beds, issues })
+      setData({ hostels, rooms, beds, issues, feeRecords })
     }
 
     load()
@@ -74,10 +74,11 @@ const AdminDashboard = () => {
     return <Loader text='Loading dashboard...' />
   }
 
-  const { hostels, rooms, beds, issues } = data
+    const { hostels, rooms, beds, issues, feeRecords } = data
 
   const activeHostels = hostels ? hostels.filter((h) => h.status === 'ACTIVE').length : DASH
   const openIssues = issues ? issues.filter((i) => i.status === 'OPEN').length : DASH
+  const paidStudents = feeRecords ? feeRecords.filter((f) => f.status === 'PAID').length : 0
 
   const totalBeds = beds ? beds.length : 0
   const occupied = beds ? beds.filter((b) => b.status === 'OCCUPIED').length : 0
@@ -105,7 +106,13 @@ const AdminDashboard = () => {
         <p className='text-sm text-gray-500 mt-1'>Here is what is happening across the hostels.</p>
       </div>
 
-      <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8'>
+      <div className='grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-8'>
+        <StatCard
+          label='Students on record'
+          value={feeRecords ? feeRecords.length : DASH}
+          foot={feeRecords ? `${paidStudents} paid school fees` : ''}
+          className='sm:col-span-2 xl:col-span-1'
+        />
         <StatCard
           label='Active hostels'
           value={activeHostels}

@@ -18,7 +18,7 @@ const CheckInVerification = () => {
 
     try {
       // codes look like R-678-458, so tidy up spaces and lowercase letters
-      const res = await completeCheckIn(code.trim().toUpperCase())
+      const res = await completeCheckIn(code.trim())
       setResult(res.data)
       setCode('')
     } catch (err) {
@@ -84,9 +84,9 @@ const CheckInVerification = () => {
         <input
           value={code}
           onChange={(e) => setCode(e.target.value)}
-          placeholder='R-678-458'
+          placeholder='r-678-458'
           autoComplete='off'
-          className='w-full border border-stone-200 rounded-lg px-4 py-3 font-mono text-lg tracking-wider uppercase outline-none focus:border-green-700 mb-4'
+          className='w-full border border-stone-200 rounded-lg px-4 py-3 font-mono text-lg tracking-wider outline-none focus:border-green-700 mb-4'
         />
 
         {error && (

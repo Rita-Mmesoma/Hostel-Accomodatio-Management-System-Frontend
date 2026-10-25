@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, Plus, Search } from 'lucide-react'
 import StatusBadge from '../ui/StatusBadge'
@@ -14,6 +14,7 @@ import {
   updateRoom,
   deactivateRoom,
   activateRoom,
+  createBed,
 } from '../../api/admin'
 
 // backend bed status -> label used by StatusBadge
@@ -56,8 +57,31 @@ const buildRoomNumbers = (prefix, from, to) => {
   return numbers
 }
 
+// Picks the next free bed numbers: B1, B2, ... skipping ones the room already has
+const nextBedNumbers = (existingBeds, count) => {
+  const used = new Set(existingBeds.map((b) => b.bedNumber.toUpperCase()))
+  const numbers = []
+  let n = 1
+  while (numbers.length < count) {
+    const label = `B${n}`
+    if (!used.has(label)) numbers.push(label)
+    n++
+  }
+  return numbers
+}
+
 const HostelRooms = () => {
   const { hostelId } = useParams()
+
+    const bedsRef = useRef(null)
+
+  const viewBeds = (roomId) => {
+    setSelectedRoomId(roomId)
+    // wait for the beds section to appear, then scroll down to it
+    setTimeout(() => {
+      bedsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 50)
+  }
 
   const [hostel, setHostel] = useState(null)
   const [rooms, setRooms] = useState([])
@@ -87,6 +111,7 @@ const HostelRooms = () => {
   const [editError, setEditError] = useState('')
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState('')
+  const [addingBeds, setAddingBeds] = useState(false)
 
   const load = async () => {
     try {
@@ -213,6 +238,38 @@ const HostelRooms = () => {
     }
   }
 
+  // creates the missing beds of one room; returns an error text, or null if all went well
+  const fillRoom = async (room) => {
+    const existing = beds.filter((b) => b.roomId === room.id)
+    const missing = room.capacity - existing.length
+    if (missing <= 0) return null
+
+    for (const number of nextBedNumbers(existing, missing)) {
+      try {
+        await createBed(room.id, number)
+      } catch (err) {
+        return `Room ${room.roomNumber}: ${err.message}`
+      }
+    }
+    return null
+  }
+
+  const handleAddBeds = async (targetRooms) => {
+    setActionError('')
+    setAddingBeds(true)
+
+    // the backend creates one bed per request, so we send them one after another
+    const problems = []
+    for (const room of targetRooms) {
+      const problem = await fillRoom(room)
+      if (problem) problems.push(problem)
+    }
+
+    await load()
+    setAddingBeds(false)
+    if (problems.length > 0) setActionError(problems.join(' · '))
+  }
+
   if (loading) {
     return <Loader text='Loading rooms...' />
   }
@@ -243,6 +300,8 @@ const HostelRooms = () => {
 
   const bedsOf = (room) => beds.filter((b) => b.roomId === room.id)
   const hostelStats = getStats(beds)
+  const missingFor = (room) => Math.max(0, room.capacity - bedsOf(room).length)
+  const roomsNeedingBeds = rooms.filter((room) => missingFor(room) > 0)
   const active = hostel.status === 'ACTIVE'
 
   const visibleRooms = rooms.filter((room) => {
@@ -253,7 +312,7 @@ const HostelRooms = () => {
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId)
   const selectedBeds = selectedRoom ? bedsOf(selectedRoom) : []
-
+  
   return (
     <div>
       <Link
@@ -275,16 +334,37 @@ const HostelRooms = () => {
           </p>
         </div>
 
-        <button
-          onClick={() => {
-            setFormError('')
-            setShowAddRoom(true)
-          }}
-          className='bg-green-800 text-white text-sm font-semibold rounded-lg px-4 py-2.5 flex items-center justify-center gap-2 cursor-pointer hover:bg-green-900'
-        >
-          <Plus size={16} /> Add Room
-        </button>
+               <div className='flex gap-2 flex-wrap'>
+          {roomsNeedingBeds.length > 0 && (
+            <button
+              onClick={() => handleAddBeds(roomsNeedingBeds)}
+              disabled={addingBeds}
+              className='border border-green-800 text-green-800 text-sm font-semibold rounded-lg px-4 py-2.5 flex items-center justify-center gap-2 cursor-pointer hover:bg-green-50 disabled:opacity-60'
+            >
+              {addingBeds && <Spinner size={16} />}
+              {addingBeds
+                ? 'Adding beds...'
+                : `Add missing beds (${roomsNeedingBeds.reduce((sum, r) => sum + missingFor(r), 0)})`}
+            </button>
+          )}
+
+          <button
+            onClick={() => {
+              setFormError('')
+              setShowAddRoom(true)
+            }}
+            className='bg-green-800 text-white text-sm font-semibold rounded-lg px-4 py-2.5 flex items-center justify-center gap-2 cursor-pointer hover:bg-green-900'
+          >
+            <Plus size={16} /> Add Room
+          </button>
+        </div>
       </div>
+      
+      {actionError && (
+        <div className='mb-4'>
+          <ErrorMessage message={actionError} />
+        </div>
+      )}
 
       {/* Filters + search */}
       <div className='flex flex-col md:flex-row gap-3 md:items-center md:justify-between mb-4'>
@@ -359,7 +439,7 @@ const HostelRooms = () => {
                 <StatusBadge status={status} />
               </span>
               <button
-                onClick={() => setSelectedRoomId(room.id)}
+                onClick={() => viewBeds(room.id)}
                 className='text-green-800 font-semibold text-left cursor-pointer hover:underline'
               >
                 View beds
@@ -392,7 +472,7 @@ const HostelRooms = () => {
                   {stats.taken} / {stats.total} beds taken
                 </span>
                 <button
-                  onClick={() => setSelectedRoomId(room.id)}
+                  onClick={() => viewBeds(room.id)}
                   className='text-green-800 font-semibold cursor-pointer'
                 >
                   View beds
@@ -409,7 +489,7 @@ const HostelRooms = () => {
 
       {/* Beds of the selected room */}
       {selectedRoom && (
-        <div>
+        <div ref={bedsRef} className='scroll-mt-4'>
           <div className='flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-4'>
             <div>
               <h3 className='text-base font-bold text-stone-900'>
@@ -423,28 +503,31 @@ const HostelRooms = () => {
             </div>
 
             <div className='flex gap-2'>
+              {missingFor(selectedRoom) > 0 && (
+                <button
+                  onClick={() => handleAddBeds([selectedRoom])}
+                  disabled={addingBeds}
+                  className='border border-green-800 text-green-800 rounded-lg px-4 py-2 text-sm font-semibold cursor-pointer hover:bg-green-50 flex items-center gap-2 disabled:opacity-60'
+                >
+                  {addingBeds && <Spinner size={14} />}
+                  Add {missingFor(selectedRoom)} bed{missingFor(selectedRoom) === 1 ? '' : 's'}
+                </button>
+              )}
+
               <button
                 onClick={() => openEditRoom(selectedRoom)}
                 className='border border-stone-200 bg-white rounded-lg px-4 py-2 text-sm cursor-pointer hover:bg-stone-50'
               >
                 Edit room
               </button>
-              <button
-                onClick={() => toggleRoom(selectedRoom)}
-                disabled={busy}
-                className='border border-stone-200 bg-white rounded-lg px-4 py-2 text-sm cursor-pointer hover:bg-stone-50 flex items-center gap-2 disabled:opacity-60'
-              >
-                {busy && <Spinner size={14} />}
-                {isRoomInactive(selectedRoom) ? 'Activate room' : 'Deactivate room'}
-              </button>
             </div>
           </div>
 
-          {actionError && (
+          {/* {actionError && (
             <div className='mb-4'>
               <ErrorMessage message={actionError} />
             </div>
-          )}
+          )} */}
 
           {selectedBeds.length === 0 && (
             <p className='text-sm text-stone-500'>No beds have been created in this room yet.</p>
@@ -473,16 +556,8 @@ const HostelRooms = () => {
       {showAddRoom && (
         <Modal title='Add Room' onClose={() => !saving && setShowAddRoom(false)}>
           <form onSubmit={handleAddRoom}>
-            {/* <label className='block text-sm font-medium mb-1'>Room number</label>
-            <input
-              value={roomNumber}
-              onChange={(e) => setRoomNumber(e.target.value)}
-              placeholder='e.g. A01'
-              required
-              className={`${inputClass} mb-4`}
-            /> */}
 
-                        {!multiple ? (
+            {!multiple ? (
               <>
                 <label className='block text-sm font-medium mb-1'>Room number</label>
                 <input
@@ -627,6 +702,15 @@ const HostelRooms = () => {
               >
                 {busy && <Spinner size={16} />}
                 {busy ? 'Saving...' : 'Save'}
+              </button>
+
+                            <button
+                onClick={() => toggleRoom(selectedRoom)}
+                disabled={busy}
+                className='border border-stone-200 bg-white rounded-lg px-4 py-2 text-sm cursor-pointer hover:bg-stone-50 flex items-center gap-2 disabled:opacity-60'
+              >
+                {busy && <Spinner size={14} />}
+                {isRoomInactive(selectedRoom) ? 'Activate room' : 'Deactivate room'}
               </button>
             </div>
           </form>

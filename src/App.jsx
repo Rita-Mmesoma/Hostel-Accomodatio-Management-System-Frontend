@@ -16,6 +16,9 @@ import ComingSoon from './components/ComingSoon'
 import ManageHostels from './components/admin/ManageHostels'
 import HostelRooms from './components/admin/HostelRooms'
 import CheckInVerification from './components/CheckInVerification'
+import AdminIssues from './components/admin/AdminIssues'
+import AdminPayments from './components/admin/AdminPayments'
+import AdminSchoolFees from './components/admin/AdminSchoolFees'
 
 function App() {
   return (
@@ -39,10 +42,10 @@ function App() {
       <Route element={<ProtectedRoute role='admin' />}>
         <Route element={<AdminLayout />}>
           <Route path='/admin/dashboard' element={<AdminDashboard />} />
-          {/* <Route path='/admin/hostels' element={<ComingSoon title='Hostels & Rooms' />} /> */}
-          <Route path='/admin/payments' element={<ComingSoon title='Payments' />} />
+          <Route path='/admin/payments' element={<AdminPayments />} />
+              <Route path='/admin/school-fees' element={<AdminSchoolFees />} />
           <Route path='/admin/check-in' element={<CheckInVerification />} />
-          <Route path='/admin/issues' element={<ComingSoon title='Issues' />} />
+          <Route path='/admin/issues' element={<AdminIssues />} />
           <Route path='/admin/hostels' element={<ManageHostels />} />
           <Route path='/admin/hostels/:hostelId' element={<HostelRooms />} />
           <Route path='/admin/signout' element={<SignOut />} />

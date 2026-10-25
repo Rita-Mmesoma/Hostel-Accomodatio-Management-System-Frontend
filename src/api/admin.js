@@ -40,3 +40,30 @@ export const deactivateRoom = (roomId) =>
 
 export const activateRoom = (roomId) =>
   request(`/admin/room/${roomId}/activate`, { method: 'PATCH' })
+
+export const createBed = (roomId, bedNumber) =>
+  request('/admin/create-bed', {
+    method: 'POST',
+    body: JSON.stringify({ roomId, bedNumber }),
+  })
+
+export const updateBed = (bedId, bedNumber) =>
+  request(`/admin/bed/update-bed/${bedId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ bedNumber }),
+})
+
+export const updateIssueStatus = (issueId, status) =>
+  request(`/admin/issues/${issueId}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+})
+
+export const deleteIssue = (issueId) =>
+  request(`/admin/issues/${issueId}`, { method: 'DELETE' })
+
+export const fundBankAccount = (accountNumber, amount) =>
+  request('/admin/fund/bank-account', {
+    method: 'POST',
+    body: JSON.stringify({ accountNumber, amount }),
+})
