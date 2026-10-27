@@ -67,3 +67,5 @@ export const fundBankAccount = (accountNumber, amount) =>
     method: 'POST',
     body: JSON.stringify({ accountNumber, amount }),
 })
+
+export const getAllTransactions = () => request('/admin/all/transactions')

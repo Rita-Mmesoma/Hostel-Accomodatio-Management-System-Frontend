@@ -10,9 +10,8 @@ export const applyForHostel = (hostelId) =>
     body: JSON.stringify({ hostelId }),
   })
 
-// the backend picks the room and bed
+// the backend picks the room and bed (no body required)
 export const reserveBed = () =>
-  request('/user/allocation', {
+  request('/user/process-hostel/allocation', {
     method: 'POST',
-    body: JSON.stringify({}),
   })

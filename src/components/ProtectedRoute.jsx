@@ -7,7 +7,7 @@ const ProtectedRoute = ({role}) => {
 
 
   if (!token || savedRole !== role) {
-    return <Navigate to={role === 'admin' ? '/adminLogin' : '/'} replace />
+    return <Navigate to={role === 'admin' ? '/adminlogin' : '/'} replace />
   }
 
   return (

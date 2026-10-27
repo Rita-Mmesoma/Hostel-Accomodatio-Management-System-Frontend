@@ -73,15 +73,7 @@ const nextBedNumbers = (existingBeds, count) => {
 const HostelRooms = () => {
   const { hostelId } = useParams()
 
-    const bedsRef = useRef(null)
-
-  const viewBeds = (roomId) => {
-    setSelectedRoomId(roomId)
-    // wait for the beds section to appear, then scroll down to it
-    setTimeout(() => {
-      bedsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }, 50)
-  }
+  const bedsRef = useRef(null)
 
   const [hostel, setHostel] = useState(null)
   const [rooms, setRooms] = useState([])
@@ -92,6 +84,14 @@ const HostelRooms = () => {
   const [filter, setFilter] = useState('All')
   const [search, setSearch] = useState('')
   const [selectedRoomId, setSelectedRoomId] = useState(null)
+
+  const viewBeds = (roomId) => {
+    setSelectedRoomId(roomId)
+    // wait for the beds section to appear, then scroll down to it
+    setTimeout(() => {
+      bedsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 50)
+  }
 
   // add room
   const [showAddRoom, setShowAddRoom] = useState(false)

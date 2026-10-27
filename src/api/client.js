@@ -8,7 +8,7 @@ export async function request(path, options = {}) {
     response = await fetch(`${BASE_URL}${path}`, {
       ...options,
             headers: {
-        ...(!(options.body instanceof FormData) && { 'Content-Type': 'application/json' }),
+        ...(options.body && !(options.body instanceof FormData) && { 'Content-Type': 'application/json' }),
         ...(token && { Authorization: `Bearer ${token}` }),
         ...options.headers,
       },
@@ -18,6 +18,17 @@ export async function request(path, options = {}) {
   }
 
   const result = await response.json().catch(() => null)
+
+  if (response.status === 400) {
+    console.warn('400 Bad Request on:', path, 'Response:', result)
+  }
+
+  if (response.status === 403) {
+    try {
+      const payload = token ? JSON.parse(atob(token.split('.')[1])) : null
+      console.warn('403 Forbidden on:', path, 'Token payload:', payload)
+    } catch {}
+  }
 
   if (response.status === 401 && token) {
     const goTo = localStorage.getItem('role') === 'admin' ? '/adminlogin' : '/'

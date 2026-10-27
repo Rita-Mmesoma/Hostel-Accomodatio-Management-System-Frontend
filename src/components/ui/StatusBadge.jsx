@@ -13,6 +13,8 @@ const styles = {
   Full: 'bg-red-50 text-red-600',
   Paid: 'bg-green-50 text-green-700',
   'Not Paid': 'bg-red-50 text-red-600',
+  Credit: 'bg-green-50 text-green-700',
+  Debit: 'bg-amber-50 text-amber-700',
 }
 
 const StatusBadge = ({ status }) => {

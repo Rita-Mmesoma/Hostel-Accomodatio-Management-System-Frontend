@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 
 const useCountdown = (deadline) => {
-  const [remaining, setRemaining] = useState(Math.max(0, deadline - Date.now()))
+  const [remaining, setRemaining] = useState(() => Math.max(0, deadline - Date.now()))
 
   useEffect(() => {
+    setRemaining(Math.max(0, deadline - Date.now()))
     const id = setInterval(() => {
       setRemaining(Math.max(0, deadline - Date.now()))
     }, 1000)

@@ -5,6 +5,7 @@ import ActionCard from './ui/ActionCard'
 import Loader from './ui/Loader'
 import { useProfile } from '../context/ProfileContext'
 import { getMyIssues } from '../api/issues'
+import { isAccommodationPaid } from '../utils/checkIn'
 
 const statusStyles = {
   'Not Reserved': 'bg-stone-100 text-stone-500',
@@ -28,9 +29,12 @@ const shortcuts = [
 ]
 
 // Works out the status from the student's allocation
-const getStatus = (allocation) => {
-  if (!allocation?.hostel) return 'Not Reserved'
-  if (allocation.bed?.status === 'RESERVED') return 'Pending Payment'
+const getStatus = (allocation, profile) => {
+  const regNo = profile?.registrationNo || localStorage.getItem('studentRegNo')
+  const hostel = allocation?.hostel || allocation?.bed?.room?.hostel
+  if (!hostel) return 'Not Reserved'
+  if (isAccommodationPaid(regNo, allocation)) return 'Allocated'
+  if (allocation?.status === 'RESERVED' || allocation?.bed?.status === 'RESERVED') return 'Pending Payment'
   return 'Allocated'
 }
 
@@ -53,7 +57,7 @@ const Dashboard = () => {
   }
 
   const { allocation, schoolFee } = profile
-  const status = getStatus(allocation)
+  const status = getStatus(allocation, profile)
   const feePaid = schoolFee?.status === 'PAID'
   const openIssues = issues ? issues.filter((i) => i.status === 'OPEN').length : '–'
 
@@ -79,10 +83,12 @@ const Dashboard = () => {
         <StatCard label='Accommodation status' value={status} />
         <StatCard
           label='Hostel'
-          value={allocation?.hostel?.name || 'No hostel yet'}
+          value={allocation?.hostel?.name || allocation?.bed?.room?.hostel?.name || 'No hostel yet'}
           foot={
-            allocation?.room
+            allocation?.room?.roomNumber
               ? `Room ${allocation.room.roomNumber} · Bed ${allocation.bed?.bedNumber}`
+              : allocation?.bed?.room?.roomNumber
+              ? `Room ${allocation.bed.room.roomNumber} · Bed ${allocation.bed?.bedNumber}`
               : 'Reserve a room to get started'
           }
         />

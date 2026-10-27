@@ -43,12 +43,12 @@ const DashboardLayout = ({
   const { profile, loading } = useProfile()
 
   return (
-    <div className='w-full min-h-screen flex bg-gray-50'>
+    <div className='w-full h-screen flex bg-gray-50 overflow-hidden'>
 
       <aside
-        className={`fixed md:static top-0 left-0 h-full md:h-auto w-64 md:w-70 lg:w-90 bg-green-700 text-white
-                    flex flex-col p-4 z-50 transition-transform duration-200
-                    ${menuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}
+        className={`fixed md:static top-0 left-0 h-full md:h-full shrink-0 overflow-y-auto w-64 md:w-70 lg:w-90 bg-green-700 text-white
+            flex flex-col p-4 z-50 transition-transform duration-200
+            ${menuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}
       >
         <div className='text-xl font-bold mb-8 px-2'>Hostel Portal</div>
         <nav className='flex flex-col gap-1'>
@@ -85,27 +85,27 @@ const DashboardLayout = ({
         />
       )}
 
-      <div className='flex-1 flex flex-col'>
-        <header className='h-16 bg-white border-b border-stone-200 flex items-center justify-between px-6'>
+        <div className='flex-1 flex flex-col min-w-0 h-full'>
+        <header className='h-16 shrink-0 bg-white border-b border-stone-200 flex items-center justify-between px-6'>
           <div className='flex items-center gap-4'>
-            <button onClick={() => setMenuOpen(true)} className='md:hidden text-2xl'>
+            <button onClick={() => setMenuOpen(true)} className='md:hidden text-2xl cursor-pointer'>
               ☰
             </button>
-            <h1 className='text-lg font-semibold'>{findTitle[pathname] || 'Dashboard'}</h1>
+            <h1 className='text-lg font-semibold'>{findTitle(titles, pathname)}</h1>
           </div>
 
           {loading ? (
             <div className='h-9 w-44 rounded-lg bg-stone-100 animate-pulse' />
           ) : (
-            <UserInfo
+            <UserInfo profile={profile}
               name={profile?.fullName || 'User'}
               role={profile?.roleLabel || ''}
-              signOutPath={signOutPath}
+              // signOutPath={signOutPath}
             />
           )}
         </header>
 
-        <main className='flex-1 p-6'>
+        <main className='flex-1 overflow-y-auto p-6'>
           <Outlet />
         </main>
       </div>

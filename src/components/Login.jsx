@@ -14,23 +14,26 @@ const Login = () => {
   const navigate = useNavigate()
 
   const handleLogin = async (e) => {
-      e.preventDefault()
-      setError('')
-      setLoading(true)
+    e.preventDefault()
+    setError('')
+    setLoading(true)
 
-      try { 
-        clearLogin()
-        const res = await loginStudent(registrationNo.trim(), rrr.trim())
+    const cleanRegNo = registrationNo.trim()
+    const cleanRrr = rrr.trim()
 
-        saveLogin(res, 'student')
+    try { 
+      clearLogin()
+      const res = await loginStudent(cleanRegNo, cleanRrr)
 
-        navigate('/dashboard')
-      } catch (err) {
-        setError(err.message)
-      } finally {
-        setLoading(false)
-      }
+      saveLogin(res, 'student', { registrationNo: cleanRegNo, rrr: cleanRrr })
+
+      navigate('/dashboard')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
     }
+  }
 
     return (
       <div>
